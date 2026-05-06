@@ -2,26 +2,183 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Bounce hover — desktop only */
+@media (pointer: fine) {
+  a, button, [role="button"] {
+    transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+    will-change: transform;
+  }
+  a:hover, button:hover, [role="button"]:hover {
+    transform: translateY(-2px) scale(1.03);
+  }
+  a:active, button:active, [role="button"]:active {
+    transform: scale(0.96) translateY(0px);
+    transition: transform 0.08s ease;
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  :root {
+    --background: #FFFFFF;
+    --foreground: #1D1D1F;
+    --border: rgba(0,0,0,0.08);
+  }
+
+  /* ── Dashboard DARK (default) ── */
+  .dashboard-theme,
+  .dashboard-theme[data-theme="dark"] {
+    --background:               #0c0c0f;
+    --foreground:               #f7f8f8;
+    --border:                   rgba(255,255,255,0.06);
+    --linear-bg:                #0c0c0f;
+    --linear-surface:           #1A1A1C;
+    --linear-surface-elevated:  #191a1b;
+    --linear-surface-hover:     #28282c;
+    --linear-indigo:            #5E6AD2;
+    --linear-violet:            #7170ff;
+    --linear-violet-hover:      #828fff;
+    --linear-border:            rgba(255,255,255,0.07);
+    --linear-border-strong:     #23252a;
+    --linear-text-primary:      #f7f8f8;
+    --linear-text-secondary:    #d0d6e0;
+    --linear-text-tertiary:     #8a8f98;
+    --linear-text-quaternary:   #62666d;
+    color-scheme: dark;
+  }
+
+  /* ── Dashboard LIGHT — matches landing page (apple-parchment + apple-ink + apple-blue) ── */
+  .dashboard-theme[data-theme="light"] {
+    --background:               #f5f5f7;
+    --foreground:               #1d1d1f;
+    --border:                   rgba(0,0,0,0.08);
+    --linear-bg:                #f5f5f7;
+    --linear-surface:           #FFFFFF;
+    --linear-surface-elevated:  #FAFAFC;
+    --linear-surface-hover:     #EBEBEE;
+    --linear-indigo:            #0066CC;
+    --linear-violet:            #0071e3;
+    --linear-violet-hover:      #2997ff;
+    --linear-border:            rgba(0,0,0,0.08);
+    --linear-border-strong:     rgba(0,0,0,0.16);
+    --linear-text-primary:      #1d1d1f;
+    --linear-text-secondary:    #424245;
+    --linear-text-tertiary:     #6e6e73;
+    --linear-text-quaternary:   #86868b;
+    color-scheme: light;
+  }
+
+  /* ════════════════════════════════════════════════════════════
+     LIGHT MODE — overrides for hardcoded dark-mode classes
+     ════════════════════════════════════════════════════════════ */
+
+  /* Translucent whites become solid white cards with subtle border */
+  .dashboard-theme[data-theme="light"] [class*="bg-white/[0.0"],
+  .dashboard-theme[data-theme="light"] [class*="bg-white/[0.1"] {
+    background-color: #FFFFFF !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+  }
+
+  /* Card surfaces — pure white on parchment */
+  .dashboard-theme[data-theme="light"] .bg-linear-surface\/20,
+  .dashboard-theme[data-theme="light"] .bg-linear-surface\/30,
+  .dashboard-theme[data-theme="light"] .bg-linear-surface\/40,
+  .dashboard-theme[data-theme="light"] .bg-linear-surface\/60,
+  .dashboard-theme[data-theme="light"] .bg-linear-surface\/80 {
+    background-color: #FFFFFF !important;
+  }
+
+  /* Borders — subtle dark gray (matches LP) */
+  .dashboard-theme[data-theme="light"] [class*="border-white/"],
+  .dashboard-theme[data-theme="light"] .border-linear-border {
+    border-color: rgba(0,0,0,0.08) !important;
+  }
+
+  /* Hardcoded dark backgrounds → parchment */
+  .dashboard-theme[data-theme="light"] .bg-\[\#0c0c0f\],
+  .dashboard-theme[data-theme="light"] .bg-\[\#0F0F10\],
+  .dashboard-theme[data-theme="light"] .bg-\[\#111113\] {
+    background-color: #f5f5f7 !important;
+  }
+  .dashboard-theme[data-theme="light"] .bg-\[\#16161a\],
+  .dashboard-theme[data-theme="light"] .bg-\[#1A1A1C\] {
+    background-color: #FFFFFF !important;
+  }
+
+  /* Hardcoded white text → apple-ink */
+  .dashboard-theme[data-theme="light"] .text-white:not(.bg-linear-indigo)       { color: #1d1d1f !important; }
+  .dashboard-theme[data-theme="light"] .text-white\/90:not(.bg-linear-indigo)   { color: #1d1d1f !important; }
+  .dashboard-theme[data-theme="light"] .text-white\/80:not(.bg-linear-indigo)   { color: #424245 !important; }
+  .dashboard-theme[data-theme="light"] .text-white\/70:not(.bg-linear-indigo)   { color: #424245 !important; }
+  .dashboard-theme[data-theme="light"] .text-white\/60:not(.bg-linear-indigo)   { color: #6e6e73 !important; }
+  .dashboard-theme[data-theme="light"] .text-white\/50:not(.bg-linear-indigo)   { color: #6e6e73 !important; }
+  .dashboard-theme[data-theme="light"] .text-white\/40:not(.bg-linear-indigo)   { color: #86868b !important; }
+  .dashboard-theme[data-theme="light"] .text-white\/30:not(.bg-linear-indigo)   { color: #86868b !important; }
+  .dashboard-theme[data-theme="light"] .text-white\/20:not(.bg-linear-indigo)   { color: #b0b0b8 !important; }
+
+  /* Enforce white text on forced dark components (like expanded cards) */
+  .dashboard-theme[data-theme="light"] .force-dark .text-white { color: #ffffff !important; }
+  .dashboard-theme[data-theme="light"] .force-dark .text-gray-400 { color: #9ca3af !important; }
+
+  /* Indigo accents → apple-blue */
+  .dashboard-theme[data-theme="light"] .text-linear-indigo  { color: #0066CC !important; }
+  .dashboard-theme[data-theme="light"] .bg-linear-indigo    { background-color: #0066CC !important; }
+  .dashboard-theme[data-theme="light"] .text-indigo-400,
+  .dashboard-theme[data-theme="light"] .text-indigo-300     { color: #0066CC !important; }
+  .dashboard-theme[data-theme="light"] .bg-\[#6366f1\]\/20,
+  .dashboard-theme[data-theme="light"] .bg-linear-indigo\/10,
+  .dashboard-theme[data-theme="light"] .bg-linear-indigo\/15 {
+    background-color: rgba(0,102,204,0.1) !important;
+  }
+  .dashboard-theme[data-theme="light"] .bg-linear-indigo\/20 {
+    background-color: rgba(0,102,204,0.12) !important;
+  }
+  .dashboard-theme[data-theme="light"] .border-linear-indigo,
+  .dashboard-theme[data-theme="light"] [class*="border-linear-indigo"] {
+    border-color: rgba(0,102,204,0.3) !important;
+  }
+
+  /* Shadows — softer on light */
+  .dashboard-theme[data-theme="light"] .shadow-black\/50,
+  .dashboard-theme[data-theme="light"] .shadow-black\/60 { box-shadow: 0 12px 40px rgba(0,0,0,0.08) !important; }
+  .dashboard-theme[data-theme="light"] .shadow-black\/20 { box-shadow: 0 4px  20px rgba(0,0,0,0.05) !important; }
+  .dashboard-theme[data-theme="light"] .shadow-2xl       { box-shadow: 0 12px 40px rgba(0,0,0,0.06) !important; }
+  .dashboard-theme[data-theme="light"] .shadow-xl        { box-shadow: 0 8px  24px rgba(0,0,0,0.05) !important; }
+
+  /* Inputs — solid white with visible borders */
+  .dashboard-theme[data-theme="light"] input:not([type="checkbox"]):not([type="radio"]),
+  .dashboard-theme[data-theme="light"] textarea,
+  .dashboard-theme[data-theme="light"] select {
+    background-color: #FFFFFF !important;
+    border-color: rgba(0,0,0,0.12) !important;
+    color: #1d1d1f !important;
+  }
+
+  /* Etheral background bg-[#0c0c0f] in EtherealBackground */
+  .dashboard-theme[data-theme="light"] .bg-\[\#EEF3FF\] { background-color: #f5f5f7 !important; }
+
+  * {
+    @apply border-apple-border;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: var(--font-dm-sans), sans-serif !important;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-feature-settings: "ss01", "ss02", "cv01", "cv02", "cv03";
+  }
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+.dashboard-theme ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); }
+.dashboard-theme[data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
