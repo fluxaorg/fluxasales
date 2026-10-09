@@ -144,7 +144,7 @@ export default function TeamClient({ initialMembers, orgId, plan }: TeamClientPr
           <p className="text-linear-text-tertiary text-sm mb-8 max-w-md mx-auto">
             Gestão de equipe e colaboração em tempo real são exclusivos para assinantes do plano Elite. Adicione colaboradores e trabalhem juntos nos mesmos funis.
           </p>
-          <button className="bg-linear-indigo text-white px-8 py-3 rounded-xl font-bold hover:scale-105 transition-all shadow-xl shadow-linear-indigo/20">
+          <button className="bg-linear-indigo text-white px-8 py-3 rounded-xl font-bold transition-all shadow-xl shadow-linear-indigo/20">
             Fazer Upgrade
           </button>
         </div>

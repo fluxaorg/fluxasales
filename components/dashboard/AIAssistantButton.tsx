@@ -89,7 +89,7 @@ export default function AIAssistantButton() {
       </AnimatePresence>
 
       <motion.button
-        whileHover={{ scale: 1.04, y: -2 }}
+        whileHover={{ y: -2 }}
         whileTap={{ scale: 0.96 }}
         onClick={() => setOpen(!open)}
         className="hidden md:flex fixed bottom-7 right-7 z-[201] items-center gap-2.5 px-4 py-3 rounded-2xl transition-all"

@@ -1,63 +1,78 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useState, useEffect, useMemo } from 'react'
+import Script from 'next/script'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import toast from 'react-hot-toast'
-import { ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react'
-import { Funnel, FunnelPage, FunnelTheme } from '@/types'
+import { ArrowLeft, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react'
+import { Funnel, FunnelPage, FunnelComponent, InputContent, QuestionContent, ButtonContent, HeadingContent, TextContent } from '@/types'
+import { resolveTheme, googleFontUrl, alpha, inputAnswerKey, isLight } from '@/lib/funnel-theme'
 
 interface FunnelRendererProps {
   funnel: Funnel
   pages: FunnelPage[]
+  metaPixelId?: string | null
+  /** Rascunho aberto pelo dono: navega normalmente, mas não grava lead. */
+  isDraft?: boolean
 }
 
-const DEFAULT_THEME: FunnelTheme = {
-  bg_color: "#020203",
-  text_color: "#FFFFFF",
-  accent_color: "#5E6ADA",
-  button_color: "#5E6ADA",
-  button_text_color: "#FFFFFF",
-  font_family: "'Inter', sans-serif",
-  border_radius: "24px",
-  animation_type: "blur"
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function validateInput(c: InputContent, value: string): string | null {
+  const v = value.trim()
+  if (!v) return c.required ? 'Campo obrigatório' : null
+  if (c.field_name === 'email' && !EMAIL_RE.test(v)) return 'Digite um e-mail válido'
+  if (c.field_name === 'phone' && v.replace(/\D/g, '').length < 8) return 'Digite um telefone válido'
+  return null
 }
 
-export default function FunnelRenderer({ funnel, pages }: FunnelRendererProps) {
-  const [currentPageIndex, setCurrentPageIndex] = useState(0)
-  const [answers, setAnswers] = useState<Record<string, any>>({})
+export default function FunnelRenderer({ funnel, pages, metaPixelId, isDraft = false }: FunnelRendererProps) {
+  const theme = resolveTheme(funnel.theme)
+  const reduceMotion = useReducedMotion()
+  const pixelId = metaPixelId?.replace(/\D/g, '') || null
+
+  const [currentPageId, setCurrentPageId] = useState(pages[0]?.id ?? '')
+  const [history, setHistory] = useState<string[]>([])
+  const [answers, setAnswers] = useState<Record<string, string>>({})
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isFinished, setIsFinished] = useState(false)
-  const [direction, setDirection] = useState(0)
-  
-  const theme = funnel.theme || DEFAULT_THEME
-  const currentPage = pages[currentPageIndex]
+  const [direction, setDirection] = useState(1)
 
-  const handleNext = (nextPageId?: string | null) => {
-    setDirection(1)
-    if (nextPageId) {
-      const nextIndex = pages.findIndex(p => p.id === nextPageId)
-      if (nextIndex !== -1) {
-        setCurrentPageIndex(nextIndex)
-        return
-      }
+  const currentIndex = Math.max(0, pages.findIndex(p => p.id === currentPageId))
+  const currentPage = pages[currentIndex]
+  const components = currentPage?.components ?? []
+
+  useEffect(() => {
+    if (isFinished && pixelId && !isDraft) {
+      const fbq = (window as Window & { fbq?: (...args: unknown[]) => void }).fbq
+      fbq?.('track', 'Lead')
     }
-    
-    if (currentPageIndex < pages.length - 1) {
-      setCurrentPageIndex(currentPageIndex + 1)
+  }, [isFinished, pixelId, isDraft])
+
+  const fontUrl = googleFontUrl(theme.font_family)
+
+  // Valida os campos da etapa atual antes de avançar ou enviar.
+  const validateCurrentPage = () => {
+    const next: Record<string, string> = {}
+    for (const comp of components) {
+      if (comp.type !== 'INPUT') continue
+      const c = comp.content as InputContent
+      const err = validateInput(c, answers[inputAnswerKey(c)] ?? '')
+      if (err) next[comp.id] = err
     }
+    setErrors(next)
+    return Object.keys(next).length === 0
   }
 
-  const handleBack = () => {
-    setDirection(-1)
-    if (currentPageIndex > 0) {
-      setCurrentPageIndex(currentPageIndex - 1)
+  const handleSubmit = async (extra: Record<string, string> = {}) => {
+    const allAnswers = { ...answers, ...extra }
+    if (isDraft) {
+      toast('Modo rascunho: o lead não foi salvo. Publique o funil para capturar leads.', { icon: 'ℹ️' })
+      setIsFinished(true)
+      return
     }
-  }
-
-  const handleSubmit = async (finalAnswers?: Record<string, any>) => {
     setIsSubmitting(true)
-    const allAnswers = { ...answers, ...(finalAnswers || {}) }
-
     try {
       const res = await fetch('/api/leads', {
         method: 'POST',
@@ -65,247 +80,316 @@ export default function FunnelRenderer({ funnel, pages }: FunnelRendererProps) {
         body: JSON.stringify({
           funnel_id: funnel.id,
           answers: allAnswers,
-          source: typeof document !== 'undefined' ? document.referrer : 'direct'
-        })
+          source: document.referrer || 'direct',
+        }),
       })
-
-      if (!res.ok) throw new Error('Failed to send lead')
-      
+      if (res.status === 429) throw new Error('Muitas tentativas. Aguarde um minuto e tente novamente.')
+      if (!res.ok) throw new Error('Não foi possível enviar suas respostas. Tente novamente.')
       setIsFinished(true)
     } catch (err) {
-      toast.error('An error occurred while sending your answers.')
+      toast.error(err instanceof Error ? err.message : 'Erro de conexão.')
+    } finally {
       setIsSubmitting(false)
     }
   }
 
-  const variants = {
-    enter: (direction: number) => ({
-      x: direction > 0 ? 100 : -100,
-      opacity: 0,
-      filter: theme.animation_type === 'blur' ? 'blur(10px)' : 'none'
-    }),
-    center: {
-      zIndex: 1,
-      x: 0,
-      opacity: 1,
-      filter: 'blur(0px)'
-    },
-    exit: (direction: number) => ({
-      zIndex: 0,
-      x: direction < 0 ? 100 : -100,
-      opacity: 0,
-      filter: theme.animation_type === 'blur' ? 'blur(10px)' : 'none'
-    })
+  // Avança para a etapa indicada, para a próxima na ordem, ou envia se for a última.
+  const goNext = (nextPageId: string | null | undefined, extra: Record<string, string> = {}) => {
+    const target = (nextPageId && pages.some(p => p.id === nextPageId))
+      ? nextPageId
+      : pages[currentIndex + 1]?.id
+    if (!target) {
+      handleSubmit(extra)
+      return
+    }
+    setDirection(1)
+    setErrors({})
+    setHistory(h => [...h, currentPageId])
+    setCurrentPageId(target)
+    window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' })
   }
 
-  const spring = {
-    type: "spring",
-    stiffness: 300,
-    damping: 30
+  const goBack = () => {
+    if (history.length === 0) return
+    setDirection(-1)
+    setErrors({})
+    setCurrentPageId(history[history.length - 1])
+    setHistory(h => h.slice(0, -1))
+  }
+
+  const handleButton = (c: ButtonContent) => {
+    if (!validateCurrentPage()) return
+    if (c.action === 'submit') handleSubmit()
+    else goNext(c.next_page_id)
+  }
+
+  const handleOption = (c: QuestionContent, opt: QuestionContent['options'][number]) => {
+    if (!validateCurrentPage()) return
+    const extra = { [c.question]: opt.label }
+    setAnswers(prev => ({ ...prev, ...extra }))
+    goNext(opt.next_page_id, extra)
+  }
+
+  const variants = useMemo(() => {
+    if (reduceMotion || theme.animation_type === 'none') {
+      return { enter: { opacity: 1 }, center: { opacity: 1 }, exit: { opacity: 1 } }
+    }
+    const offset = (d: number) => (theme.animation_type === 'slide' || theme.animation_type === 'blur' ? d * 60 : 0)
+    return {
+      enter: (d: number) => ({
+        opacity: 0,
+        x: offset(d),
+        y: theme.animation_type === 'bounce' ? 24 : 0,
+        filter: theme.animation_type === 'blur' ? 'blur(8px)' : 'blur(0px)',
+      }),
+      center: { opacity: 1, x: 0, y: 0, filter: 'blur(0px)' },
+      exit: (d: number) => ({
+        opacity: 0,
+        x: -offset(d),
+        filter: theme.animation_type === 'blur' ? 'blur(8px)' : 'blur(0px)',
+      }),
+    }
+  }, [reduceMotion, theme.animation_type])
+
+  const transition = theme.animation_type === 'bounce'
+    ? { type: 'spring' as const, stiffness: 260, damping: 18 }
+    : { duration: 0.35, ease: [0.22, 1, 0.36, 1] as const }
+
+  const surface = alpha(theme.text_color, 0.04)
+  const surfaceHover = alpha(theme.text_color, 0.08)
+  const border = alpha(theme.text_color, 0.12)
+
+  const renderComponent = (comp: FunnelComponent) => {
+    switch (comp.type) {
+      case 'HEADING': {
+        const c = comp.content as HeadingContent
+        const Tag = (['h1', 'h2', 'h3'].includes(c.size) ? c.size : 'h2') as 'h1' | 'h2' | 'h3'
+        const size = c.size === 'h1' ? 'text-4xl sm:text-6xl' : c.size === 'h3' ? 'text-2xl sm:text-3xl' : 'text-3xl sm:text-5xl'
+        return <Tag className={`${size} font-bold tracking-tight leading-[1.1] text-balance`} style={{ color: c.color || undefined }}>{c.text}</Tag>
+      }
+      case 'TEXT': {
+        const c = comp.content as TextContent
+        return <p className="text-lg sm:text-xl leading-relaxed whitespace-pre-line" style={{ color: c.color || alpha(theme.text_color, 0.75) }}>{c.text}</p>
+      }
+      case 'INPUT': {
+        const c = comp.content as InputContent
+        const key = inputAnswerKey(c)
+        const error = errors[comp.id]
+        const id = `field-${comp.id}`
+        return (
+          <div className="space-y-2">
+            <label htmlFor={id} className="block text-sm font-medium" style={{ color: c.color || alpha(theme.text_color, 0.8) }}>
+              {c.label}{c.required && <span aria-hidden style={{ color: theme.accent_color }}> *</span>}
+            </label>
+            <input
+              id={id}
+              type={c.field_name === 'email' ? 'email' : c.field_name === 'phone' ? 'tel' : 'text'}
+              inputMode={c.field_name === 'phone' ? 'tel' : c.field_name === 'email' ? 'email' : undefined}
+              autoComplete={c.field_name === 'email' ? 'email' : c.field_name === 'name' ? 'name' : c.field_name === 'phone' ? 'tel' : 'off'}
+              placeholder={c.placeholder}
+              required={c.required}
+              aria-invalid={!!error}
+              aria-describedby={error ? `${id}-error` : undefined}
+              value={answers[key] ?? ''}
+              onChange={e => {
+                setAnswers(prev => ({ ...prev, [key]: e.target.value }))
+                if (error) setErrors(prev => { const n = { ...prev }; delete n[comp.id]; return n })
+              }}
+              onKeyDown={e => {
+                if (e.key !== 'Enter') return
+                e.preventDefault()
+                const btn = components.find(x => x.type === 'BUTTON')
+                if (btn) handleButton(btn.content as ButtonContent)
+              }}
+              className="w-full px-5 py-4 text-base sm:text-lg outline-none transition-[border-color,box-shadow] duration-200 placeholder:opacity-40"
+              style={{
+                borderRadius: `min(${theme.border_radius}, 20px)`,
+                color: theme.text_color,
+                backgroundColor: surface,
+                border: `1px solid ${error ? '#F87171' : border}`,
+              }}
+              onFocus={e => { e.currentTarget.style.boxShadow = `0 0 0 3px ${alpha(theme.accent_color, 0.35)}` }}
+              onBlur={e => { e.currentTarget.style.boxShadow = 'none' }}
+            />
+            {error && <p id={`${id}-error`} role="alert" className="text-sm text-red-400">{error}</p>}
+          </div>
+        )
+      }
+      case 'QUESTION': {
+        const c = comp.content as QuestionContent
+        return (
+          <fieldset className="space-y-4">
+            <legend className="text-xl sm:text-2xl font-semibold tracking-tight mb-4" style={{ color: c.color || undefined }}>{c.question}</legend>
+            <div className="grid grid-cols-1 gap-3">
+              {(c.options ?? []).map(opt => {
+                const selected = answers[c.question] === opt.label
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={() => handleOption(c, opt)}
+                    className="group min-h-[56px] px-5 py-4 text-left flex justify-between items-center gap-4 cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 disabled:opacity-60"
+                    style={{
+                      borderRadius: `min(${theme.border_radius}, 20px)`,
+                      backgroundColor: selected ? alpha(theme.accent_color, 0.15) : surface,
+                      border: `1px solid ${selected ? theme.accent_color : border}`,
+                      ['--tw-ring-color' as string]: theme.accent_color,
+                    }}
+                    onMouseEnter={e => { if (!selected) e.currentTarget.style.backgroundColor = surfaceHover }}
+                    onMouseLeave={e => { if (!selected) e.currentTarget.style.backgroundColor = surface }}
+                  >
+                    <span className="text-base sm:text-lg font-medium">{opt.label}</span>
+                    <ArrowRight size={20} aria-hidden className="shrink-0 opacity-50 group-hover:opacity-100 transition-opacity" style={{ color: theme.accent_color }} />
+                  </button>
+                )
+              })}
+            </div>
+          </fieldset>
+        )
+      }
+      case 'BUTTON': {
+        const c = comp.content as ButtonContent
+        return (
+          <button
+            type="button"
+            disabled={isSubmitting}
+            onClick={() => handleButton(c)}
+            className="w-full min-h-[56px] py-4 px-6 text-lg font-semibold flex items-center justify-center gap-3 cursor-pointer transition-[filter,transform] duration-200 hover:brightness-110 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-70 disabled:cursor-wait"
+            style={{
+              borderRadius: theme.border_radius,
+              backgroundColor: c.bg_color || theme.button_color,
+              color: c.text_color || theme.button_text_color,
+              ['--tw-ring-color' as string]: theme.accent_color,
+              ['--tw-ring-offset-color' as string]: theme.bg_color,
+            }}
+          >
+            {isSubmitting ? <Loader2 size={22} className="animate-spin" aria-label="Enviando" /> : <>{c.label}<ArrowRight size={20} aria-hidden /></>}
+          </button>
+        )
+      }
+    }
+  }
+
+  // Com fundo da página definido, o conteúdo vira um bloco (bg_color) sobre essa camada.
+  const hasPageBg = !!theme.page_bg_color
+  // Bloco da mesma cor da página (ex.: tema Claro): sem sombra nem borda, tudo contínuo.
+  const seamless = hasPageBg && theme.page_bg_color!.toLowerCase() === theme.bg_color.toLowerCase()
+  const pageColor = theme.page_bg_color || theme.bg_color
+  const cardRadius = theme.border_radius === '999px' ? '32px' : `min(${theme.border_radius}, 32px)`
+  const asCard = hasPageBg && !seamless
+  const cardStyle: React.CSSProperties | undefined = asCard
+    ? { backgroundColor: theme.bg_color, borderRadius: cardRadius, border: `1px solid ${alpha(theme.text_color, 0.08)}`, boxShadow: '0 24px 64px -24px rgba(0,0,0,0.35)' }
+    : undefined
+
+  const shell = (children: React.ReactNode) => (
+    <div
+      className="min-h-[100dvh] flex flex-col items-center px-4 sm:px-6 relative overflow-x-hidden"
+      data-funnel-font
+      style={{ backgroundColor: pageColor, color: theme.text_color, ['--funnel-font' as string]: theme.font_family }}
+    >
+      {fontUrl && <link rel="stylesheet" href={fontUrl} />}
+      {pixelId && !isDraft && (
+        <Script id="meta-pixel" strategy="afterInteractive">
+          {`!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${pixelId}');fbq('track','PageView');`}
+        </Script>
+      )}
+      {/* Brilho de destaque só em fundos escuros; em fundos claros ele "suja" o branco. */}
+      {!isLight(pageColor) && (
+        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -top-1/4 -left-1/4 w-[70%] h-[70%] rounded-full blur-[120px] opacity-20" style={{ backgroundColor: theme.accent_color }} />
+          <div className="absolute -bottom-1/4 -right-1/4 w-[60%] h-[60%] rounded-full blur-[140px] opacity-10" style={{ backgroundColor: theme.accent_color }} />
+        </div>
+      )}
+      {isDraft && (
+        <div className="relative z-20 mt-4 rounded-full px-4 py-1.5 text-xs font-medium" style={{ backgroundColor: alpha(theme.accent_color, 0.15), color: theme.text_color, border: `1px solid ${alpha(theme.accent_color, 0.4)}` }}>
+          Pré-visualização de rascunho — leads não são salvos
+        </div>
+      )}
+      {children}
+    </div>
+  )
+
+  if (pages.length === 0 || !currentPage) {
+    return shell(
+      <div className="relative z-10 flex-1 flex items-center justify-center text-center">
+        <p style={{ color: alpha(theme.text_color, 0.6) }}>Este funil ainda não tem conteúdo.</p>
+      </div>
+    )
   }
 
   if (isFinished) {
-    return (
-      <div 
-        className="min-h-screen flex items-center justify-center p-6 text-center"
-        style={{ backgroundColor: theme.bg_color, color: theme.text_color, fontFamily: theme.font_family }}
-      >
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          className="max-w-md p-12 bg-white/[0.03] backdrop-blur-3xl border border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)]"
-          style={{ borderRadius: theme.border_radius }}
+    return shell(
+      <div className="relative z-10 flex-1 flex items-center justify-center py-12">
+        <motion.div
+          initial={reduceMotion ? false : { opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          role="status"
+          className="max-w-md w-full p-10 text-center"
+          style={{ borderRadius: cardRadius, backgroundColor: seamless ? 'transparent' : hasPageBg ? theme.bg_color : surface, border: seamless ? 'none' : `1px solid ${border}` }}
         >
-          <div className="flex justify-center mb-8">
-            <div className="w-24 h-24 bg-emerald-500/10 rounded-full flex items-center justify-center text-emerald-500 shadow-[0_0_40px_rgba(16,185,129,0.2)] border border-emerald-500/20">
-              <CheckCircle2 size={56} />
-            </div>
+          <div className="mx-auto mb-6 w-20 h-20 rounded-full flex items-center justify-center" style={{ backgroundColor: alpha(theme.accent_color, 0.15), color: theme.accent_color }}>
+            <CheckCircle2 size={44} aria-hidden />
           </div>
-          <h2 className="text-4xl font-bold mb-4 tracking-tight leading-tight">All set!</h2>
-          <p className="opacity-60 text-lg leading-relaxed">Your information has been received. Our team will reach out shortly.</p>
+          <h2 className="text-3xl font-bold tracking-tight mb-3">Tudo certo!</h2>
+          <p className="text-base leading-relaxed" style={{ color: alpha(theme.text_color, 0.7) }}>
+            Recebemos suas respostas. Em breve entraremos em contato.
+          </p>
         </motion.div>
       </div>
     )
   }
 
-  return (
-    <div 
-      className="min-h-screen flex flex-col items-center justify-center p-6 transition-all duration-700 relative overflow-hidden"
-      style={{ backgroundColor: theme.bg_color, color: theme.text_color, fontFamily: theme.font_family }}
-    >
-      {/* Dynamic Background Elements */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div 
-          className="absolute top-[-20%] left-[-10%] w-[70%] h-[70%] rounded-full blur-[120px] opacity-20 animate-pulse" 
-          style={{ backgroundColor: theme.accent_color, transition: 'background-color 1s ease' }} 
-        />
-        <div 
-          className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full blur-[140px] opacity-10 animate-pulse" 
-          style={{ backgroundColor: theme.accent_color, animationDelay: '1s', transition: 'background-color 1s ease' }} 
-        />
-        <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay" style={{ backgroundImage: 'url("https://grainy-gradients.vercel.app/noise.svg")' }} />
+  return shell(
+    <div className={`relative z-10 w-full max-w-xl flex-1 flex flex-col ${asCard ? 'justify-center py-6 sm:py-12' : 'py-8 sm:py-12'}`}>
+      <div className={asCard ? 'flex flex-col p-6 sm:p-10' : 'flex-1 flex flex-col'} style={cardStyle}>
+      {/* Progresso */}
+      <div className="flex items-center gap-3 mb-10 sm:mb-16">
+        <div
+          className="flex-1 h-1.5 rounded-full overflow-hidden"
+          style={{ backgroundColor: alpha(theme.text_color, 0.1) }}
+          role="progressbar"
+          aria-valuemin={1}
+          aria-valuemax={pages.length}
+          aria-valuenow={currentIndex + 1}
+          aria-label={`Etapa ${currentIndex + 1} de ${pages.length}`}
+        >
+          <motion.div
+            className="h-full rounded-full"
+            style={{ backgroundColor: theme.accent_color }}
+            initial={false}
+            animate={{ width: `${((currentIndex + 1) / pages.length) * 100}%` }}
+            transition={{ duration: reduceMotion ? 0 : 0.6, ease: [0.22, 1, 0.36, 1] }}
+          />
+        </div>
+        <span className="text-xs tabular-nums" style={{ color: alpha(theme.text_color, 0.6) }}>{currentIndex + 1}/{pages.length}</span>
       </div>
 
-      <div className="w-full max-w-2xl flex flex-col items-center relative z-10">
-        {/* Progress Bar - Linear Style */}
-        <div className="w-full h-1 bg-white/[0.05] rounded-full mb-20 overflow-hidden backdrop-blur-sm border border-white/[0.03]">
-          <motion.div 
-            className="h-full shadow-[0_0_40px_rgba(255,255,255,0.3)] relative"
-            style={{ backgroundColor: theme.accent_color }}
-            initial={{ width: 0 }}
-            animate={{ width: `${((currentPageIndex + 1) / pages.length) * 100}%` }}
-            transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
+      <div className="flex-1 flex flex-col justify-center">
+        <AnimatePresence initial={false} custom={direction} mode="wait">
+          <motion.div
+            key={currentPageId}
+            custom={direction}
+            variants={variants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={transition}
+            className="w-full space-y-8"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+            {components.map(comp => <div key={comp.id}>{renderComponent(comp)}</div>)}
           </motion.div>
-        </div>
+        </AnimatePresence>
+      </div>
 
-        <div className="w-full relative min-h-[500px]">
-          <AnimatePresence initial={false} custom={direction} mode="wait">
-            <motion.div
-              key={currentPageIndex}
-              custom={direction}
-              variants={variants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{
-                x: { type: "spring", stiffness: 300, damping: 30 },
-                opacity: { duration: 0.4 },
-                filter: { duration: 0.4 }
-              }}
-              className="w-full space-y-12"
-            >
-              {(currentPage as any)?.fluxaleads_components?.map((comp: any) => (
-                <div key={comp.id} className="w-full">
-                  {comp.type === 'HEADING' && (
-                    <motion.h2 
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`font-bold tracking-tighter leading-[1] mb-2 ${
-                        comp.content.size === 'h1' ? 'text-7xl md:text-8xl' : 
-                        comp.content.size === 'h2' ? 'text-5xl md:text-6xl' : 'text-3xl md:text-4xl'
-                      }`}
-                    >
-                      {comp.content.text}
-                    </motion.h2>
-                  )}
-
-                  {comp.type === 'TEXT' && (
-                    <motion.p 
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.1 }}
-                      className="opacity-70 text-xl md:text-2xl leading-relaxed max-w-xl mb-8"
-                    >
-                      {comp.content.text}
-                    </motion.p>
-                  )}
-
-                  {comp.type === 'INPUT' && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: 15 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.2 }}
-                      className="space-y-4 w-full"
-                    >
-                       <label className="block text-[11px] font-bold uppercase tracking-[0.4em] opacity-40 ml-1">
-                        {comp.content.label} {comp.content.required && <span style={{ color: theme.accent_color }}>*</span>}
-                      </label>
-                      <input 
-                        type={comp.content.field_name === 'email' ? 'email' : 'text'}
-                        placeholder={comp.content.placeholder}
-                        required={comp.content.required}
-                        className="w-full p-6 text-xl md:text-3xl bg-white/[0.02] hover:bg-white/[0.04] focus:bg-white/[0.06] backdrop-blur-3xl border border-white/[0.08] focus:border-white/40 focus:outline-none transition-all duration-500 shadow-2xl placeholder:opacity-20 font-medium"
-                        style={{ borderRadius: theme.border_radius, color: theme.text_color, boxShadow: `0 0 0 0 ${theme.accent_color}20` }}
-                        onChange={(e) => setAnswers(prev => ({ ...prev, [comp.content.field_name]: e.target.value }))}
-                      />
-                    </motion.div>
-                  )}
-
-                  {comp.type === 'QUESTION' && (
-                    <div className="space-y-8 w-full">
-                      <h3 className="text-2xl font-semibold tracking-tight opacity-90">{comp.content.question}</h3>
-                      <div className="grid grid-cols-1 gap-4">
-                        {comp.content.options?.map((opt: any, idx: number) => (
-                          <motion.button
-                            key={opt.id}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.1 + idx * 0.05 }}
-                            whileHover={{ scale: 1.01, backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.2)' }}
-                            whileTap={{ scale: 0.99 }}
-                            onClick={() => {
-                              setAnswers(prev => ({ ...prev, [comp.content.question]: opt.label }))
-                              handleNext(opt.next_page_id)
-                            }}
-                            className="p-8 bg-white/[0.02] backdrop-blur-3xl border border-white/[0.06] text-left group flex justify-between items-center shadow-xl hover:shadow-2xl transition-all duration-500 hover:bg-white/[0.05]"
-                            style={{ borderRadius: theme.border_radius }}
-                          >
-                            <span className="text-2xl font-semibold opacity-70 group-hover:opacity-100 transition-all group-hover:translate-x-1">{opt.label}</span>
-                            <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-all transform group-hover:rotate-[-45deg]">
-                              <ArrowRight size={24} className="opacity-40 group-hover:opacity-100 transition-all" style={{ color: theme.accent_color }} />
-                            </div>
-                          </motion.button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {comp.type === 'BUTTON' && (
-                    <motion.button
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.3 }}
-                      whileHover={{ scale: 1.02, filter: 'brightness(1.1)' }}
-                      whileTap={{ scale: 0.98 }}
-                      disabled={isSubmitting}
-                      onClick={() => {
-                        if (comp.content.action === 'submit') {
-                          handleSubmit()
-                        } else {
-                          handleNext(comp.content.next_page_id)
-                        }
-                      }}
-                      className="w-full py-8 text-2xl font-bold shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] transition-all flex items-center justify-center gap-4 mt-4 hover:brightness-110 active:scale-[0.98]"
-                      style={{ 
-                        borderRadius: theme.border_radius, 
-                        backgroundColor: theme.button_color,
-                        color: theme.button_text_color
-                      }}
-                    >
-                      {isSubmitting ? (
-                        <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      ) : (
-                        <>
-                          {comp.content.label}
-                          <ArrowRight size={22} />
-                        </>
-                      )}
-                    </motion.button>
-                  )}
-                </div>
-              ))}
-            </motion.div>
-          </AnimatePresence>
-        </div>
-
-        {/* Navigation Footer */}
-        <div className="w-full mt-24 pt-10 flex items-center justify-between opacity-30 text-[10px] font-bold uppercase tracking-[0.4em] border-t border-white/5">
-          {currentPageIndex > 0 ? (
-            <button 
-              onClick={handleBack}
-              className="flex items-center gap-3 hover:opacity-100 transition-opacity group"
-            >
-              <ArrowLeft size={14} className="transform group-hover:-translate-x-1 transition-transform" /> Back
-            </button>
-          ) : <div />}
-          
-          <div className="flex items-center gap-2">
-            <span className="w-1 h-1 rounded-full bg-current" />
-            Fluxa Sales
-          </div>
-        </div>
+      <div className="mt-12 pt-6 flex items-center justify-between text-xs" style={{ borderTop: `1px solid ${alpha(theme.text_color, 0.08)}`, color: alpha(theme.text_color, 0.55) }}>
+        {history.length > 0 ? (
+          <button type="button" onClick={goBack} className="flex items-center gap-2 min-h-[44px] pr-3 cursor-pointer hover:opacity-100 transition-opacity">
+            <ArrowLeft size={14} aria-hidden /> Voltar
+          </button>
+        ) : <span />}
+        <span>Feito com Fluxa</span>
+      </div>
       </div>
     </div>
   )

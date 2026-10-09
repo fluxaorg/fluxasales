@@ -157,7 +157,7 @@ const FloatingIconsHero = React.forwardRef<
         </p>
         <div className="mt-10">
           <LiquidButton 
-            className="px-10 py-8 text-lg font-bold rounded-full text-apple-ink hover:scale-105 transition-all"
+            className="px-10 py-8 text-lg font-bold rounded-full text-apple-ink transition-all"
             onClick={onClick}
           >
             <a href={ctaHref || '#'} className="flex items-center gap-2">

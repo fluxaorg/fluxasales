@@ -14,10 +14,14 @@ export type ComponentType = 'HEADING' | 'TEXT' | 'INPUT' | 'QUESTION' | 'BUTTON'
 export interface HeadingContent {
   text: string
   size: 'h1' | 'h2' | 'h3'
+  /** Cor própria do bloco; null/ausente = usa a cor do tema. */
+  color?: string | null
 }
 
 export interface TextContent {
   text: string
+  /** Cor própria do bloco; null/ausente = usa a cor do tema. */
+  color?: string | null
 }
 
 export interface InputContent {
@@ -25,6 +29,8 @@ export interface InputContent {
   placeholder: string
   field_name: 'email' | 'name' | 'phone' | 'custom'
   required: boolean
+  /** Cor própria do bloco; null/ausente = usa a cor do tema. */
+  color?: string | null
 }
 
 export interface QuestionOption {
@@ -36,12 +42,17 @@ export interface QuestionOption {
 export interface QuestionContent {
   question: string
   options: QuestionOption[]
+  /** Cor própria do bloco; null/ausente = usa a cor do tema. */
+  color?: string | null
 }
 
 export interface ButtonContent {
   label: string
   action: 'next_page' | 'submit'
   next_page_id: string | null
+  /** Cores próprias do botão; null/ausente = usa as cores do tema. */
+  bg_color?: string | null
+  text_color?: string | null
 }
 
 export type ComponentContent =
@@ -76,6 +87,8 @@ export interface FunnelTheme {
   font_family: string
   border_radius: string
   animation_type: 'none' | 'fade' | 'slide' | 'bounce' | 'blur'
+  /** Cor da camada de fundo da página. null = o conteúdo ocupa a página inteira com bg_color. */
+  page_bg_color?: string | null
 }
 
 export interface Funnel {

@@ -366,7 +366,6 @@ export function Component() {
                     <motion.div 
                       className={`relative ${focusedInput === "email" ? 'z-10' : ''}`}
                       whileFocus={{ scale: 1.02 }}
-                      whileHover={{ scale: 1.01 }}
                       transition={{ type: "spring", stiffness: 400, damping: 25 }}
                     >
                       <div className="absolute -inset-[0.5px] bg-gradient-to-r from-white/10 via-white/5 to-white/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-300" />
@@ -404,7 +403,6 @@ export function Component() {
                     <motion.div 
                       className={`relative ${focusedInput === "password" ? 'z-10' : ''}`}
                       whileFocus={{ scale: 1.02 }}
-                      whileHover={{ scale: 1.01 }}
                       transition={{ type: "spring", stiffness: 400, damping: 25 }}
                     >
                       <div className="absolute -inset-[0.5px] bg-gradient-to-r from-white/10 via-white/5 to-white/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-300" />
@@ -490,7 +488,6 @@ export function Component() {
 
                   {/* Sign in button */}
                   <motion.button
-                    whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     type="submit"
                     disabled={isLoading}
@@ -561,7 +558,6 @@ export function Component() {
 
                   {/* Google Sign In */}
                   <motion.button
-                    whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     type="button"
                     className="w-full relative group/google"

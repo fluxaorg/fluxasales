@@ -109,7 +109,18 @@ function IconContainer({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={onClick}
-      className="aspect-square rounded-full bg-linear-surface border border-linear-border flex items-center justify-center relative cursor-pointer group"
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
+      onKeyDown={(e) => {
+        if (onClick && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      role={href ? undefined : "button"}
+      tabIndex={href ? undefined : 0}
+      aria-label={title}
+      className="aspect-square rounded-full bg-linear-surface border border-linear-border flex items-center justify-center relative cursor-pointer group outline-none focus-visible:ring-2 focus-visible:ring-linear-indigo"
     >
       <AnimatePresence>
         {hovered && (

@@ -8,7 +8,8 @@ const rateLimitMap = new Map<string, { count: number, resetAt: number }>()
 
 const schema = z.object({
   funnel_id: z.string().uuid(),
-  answers: z.record(z.string(), z.unknown()),
+  answers: z.record(z.string().max(300), z.union([z.string().max(2000), z.number(), z.boolean(), z.null()]))
+    .refine(a => Object.keys(a).length <= 60, 'Too many fields'),
   source: z.string().max(200).optional()
 })
 
@@ -18,7 +19,7 @@ const supabaseAdmin = createClient(
 )
 
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get('x-forwarded-for') || 'anonymous'
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || req.headers.get('x-real-ip') || 'anonymous'
   
   // Rate limiting check
   const now = Date.now()
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
     // Verify funnel exists and is published
     const { data: funnel, error: funnelError } = await supabaseAdmin
       .from('fluxaleads_funnels')
-      .select('id, org_id, status')
+      .select('id, org_id, status, name')
       .eq('id', validatedData.funnel_id)
       .single()
 
@@ -52,9 +53,13 @@ export async function POST(req: NextRequest) {
     const ipHash = crypto.createHash('sha256').update(ip).digest('hex')
 
     // Extract common fields if present in answers
-    const email = (validatedData.answers.email as string) || null
-    const name = (validatedData.answers.name as string) || null
-    const phone = (validatedData.answers.phone as string) || null
+    const pick = (k: string) => {
+      const v = validatedData.answers[k]
+      return typeof v === 'string' && v.trim() ? v.trim() : null
+    }
+    const email = pick('email')?.toLowerCase() ?? null
+    const name = pick('name')
+    const phone = pick('phone')
 
     // Insert lead
     const { data: lead, error: leadError } = await supabaseAdmin
@@ -74,8 +79,8 @@ export async function POST(req: NextRequest) {
 
     if (leadError) throw leadError
 
-    // Trigger Webhooks (Fire and Forget)
-    triggerWebhooks(funnel.org_id, lead)
+    // Aguarda os webhooks (timeout de 5s cada): em serverless, promessas soltas podem ser encerradas antes do envio.
+    await triggerWebhooks(funnel.org_id, { ...lead, funnel_name: funnel.name })
 
     return NextResponse.json({ success: true })
   } catch (err) {
@@ -87,7 +92,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function triggerWebhooks(orgId: string, lead: any) {
+async function triggerWebhooks(orgId: string, lead: Record<string, unknown>) {
   const { data: webhooks } = await supabaseAdmin
     .from('fluxaleads_webhooks')
     .select('url, secret')

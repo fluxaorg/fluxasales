@@ -514,7 +514,6 @@ export default function AnimatedAIChat({ onSend, placeholder }: { onSend?: (mess
                             <motion.button
                                 type="button"
                                 onClick={handleSendMessage}
-                                whileHover={{ scale: 1.01 }}
                                 whileTap={{ scale: 0.98 }}
                                 disabled={isTyping || !value.trim()}
                                 className={cn(
@@ -643,7 +642,7 @@ function ActionButton({ icon, label }: ActionButtonProps) {
     return (
         <motion.button
             type="button"
-            whileHover={{ scale: 1.05, y: -2 }}
+            whileHover={{ y: -2 }}
             whileTap={{ scale: 0.97 }}
             onHoverStart={() => setIsHovered(true)}
             onHoverEnd={() => setIsHovered(false)}

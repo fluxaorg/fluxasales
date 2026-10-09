@@ -72,7 +72,7 @@ export default function Hero() {
                 </div>
 
                 <div className="pt-4 flex justify-center">
-                  <LiquidButton className="text-apple-ink px-10 py-4 text-sm font-bold rounded-full hover:scale-105 transition-all flex items-center gap-2 group">
+                  <LiquidButton className="text-apple-ink px-10 py-4 text-sm font-bold rounded-full transition-all flex items-center gap-2 group">
                     Próxima etapa
                     <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                   </LiquidButton>

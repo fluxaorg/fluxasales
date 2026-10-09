@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
+import { parsePixelId } from '@/lib/meta-pixel'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plug2, Plus, Trash2, Activity, Globe, ShieldAlert, Copy, X, Check } from 'lucide-react'
 import { Webhook } from '@/types'
@@ -41,11 +42,15 @@ export default function IntegrationsPage() {
 
   const handleSavePixel = async (e: React.FormEvent) => {
     e.preventDefault()
+    const { value, error: invalid } = parsePixelId(pixelId)
+    if (invalid) { toast.error(invalid); return }
     setSavingPixel(true)
-    const { error } = await supabase.from('fluxaleads_organizations').update({ meta_pixel_id: pixelId.trim() || null }).eq('id', orgId)
+    // .select() confirma que a linha foi de fato atualizada (com RLS, uma recusa não gera erro).
+    const { data, error } = await supabase.from('fluxaleads_organizations').update({ meta_pixel_id: value }).eq('id', orgId).select('meta_pixel_id')
     setSavingPixel(false)
-    if (error) { toast.error('Erro ao salvar.'); return }
-    toast.success('Meta Pixel salvo!')
+    if (error || !data?.length) { toast.error('Erro ao salvar o Pixel.'); return }
+    setPixelId(value ?? '')
+    toast.success(value ? 'Meta Pixel salvo! Ele já vale para todos os funis publicados.' : 'Meta Pixel removido.')
   }
 
   const handleCreateWebhook = async (e: React.FormEvent) => {

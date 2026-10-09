@@ -219,7 +219,6 @@ export default function LoginPage() {
                   {/* Email */}
                   <motion.div
                     className={`relative ${focusedInput === 'email' ? 'z-10' : ''}`}
-                    whileHover={{ scale: 1.01 }}
                     transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                   >
                     <div className="relative flex items-center overflow-hidden rounded-lg">
@@ -249,7 +248,6 @@ export default function LoginPage() {
                   {/* Password */}
                   <motion.div
                     className={`relative ${focusedInput === 'password' ? 'z-10' : ''}`}
-                    whileHover={{ scale: 1.01 }}
                     transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                   >
                     <div className="relative flex items-center overflow-hidden rounded-lg">
@@ -315,7 +313,6 @@ export default function LoginPage() {
 
                 {/* Sign in button */}
                 <motion.button
-                  whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   type="submit"
                   disabled={isLoading}
@@ -359,7 +356,6 @@ export default function LoginPage() {
 
                 {/* Google sign in */}
                 <motion.button
-                  whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   type="button"
                   onClick={handleGoogleLogin}

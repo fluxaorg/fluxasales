@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 import { Funnel, FunnelStatus } from '@/types'
+import { slugify, DEFAULT_THEME } from '@/lib/funnel-theme'
 import { 
   Plus, 
   Settings2, 
@@ -27,7 +28,9 @@ import {
   Share2,
   Mail,
   UserPlus,
-  Send
+  Send,
+  Check,
+  Link as LinkIcon
 } from 'lucide-react'
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion'
 import Link from 'next/link'
@@ -144,13 +147,12 @@ export default function FunnelsList({ funnels: initial, leadCounts, orgId, plan,
       toast.error(`Limite do plano atingido. Seu plano ${plan} permite ${limit} funil(s).`)
       return
     }
+    if (!newName.trim()) return
     setCreating(true)
-    const slug = newName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') +
-      '-' + Math.random().toString(36).slice(2, 7)
 
     const { data: funnel, error } = await supabase
       .from('fluxaleads_funnels')
-      .insert({ org_id: orgId, name: newName.trim(), slug, status: 'draft' })
+      .insert({ org_id: orgId, name: newName.trim(), slug: slugify(newName), status: 'draft', theme: DEFAULT_THEME })
       .select()
       .single()
 
@@ -160,11 +162,20 @@ export default function FunnelsList({ funnels: initial, leadCounts, orgId, plan,
       return
     }
 
-    await supabase.from('fluxaleads_pages').insert({
-      funnel_id: funnel.id,
-      name: 'Step 1',
-      page_order: 0,
-    })
+    // Etapa inicial com um formulário pronto, para não começar de uma tela vazia.
+    const { data: page } = await supabase.from('fluxaleads_pages')
+      .insert({ funnel_id: funnel.id, name: 'Início', page_order: 0 })
+      .select()
+      .single()
+
+    if (page) {
+      await supabase.from('fluxaleads_components').insert([
+        { page_id: page.id, component_order: 0, type: 'HEADING', content: { text: newName.trim(), size: 'h1' } },
+        { page_id: page.id, component_order: 1, type: 'TEXT', content: { text: 'Deixe seus dados e entraremos em contato.' } },
+        { page_id: page.id, component_order: 2, type: 'INPUT', content: { label: 'Seu melhor e-mail', placeholder: 'voce@email.com', field_name: 'email', required: true } },
+        { page_id: page.id, component_order: 3, type: 'BUTTON', content: { label: 'Quero saber mais', action: 'submit', next_page_id: null } },
+      ])
+    }
 
     setCreating(false)
     setShowNew(false)
@@ -184,10 +195,20 @@ export default function FunnelsList({ funnels: initial, leadCounts, orgId, plan,
     toast.success(newStatus === 'published' ? 'Funil publicado!' : 'Funil pausado.')
   }
 
-  const handleCopyLink = (slug: string) => {
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const handleCopyLink = async (slug: string, funnelId?: string) => {
     const url = `${window.location.origin}/preview/${slug}`
-    navigator.clipboard.writeText(url)
-    toast.success('Link copiado!')
+    try {
+      await navigator.clipboard.writeText(url)
+      toast.success('Link copiado!')
+      if (funnelId) {
+        setCopiedId(funnelId)
+        setTimeout(() => setCopiedId(cur => (cur === funnelId ? null : cur)), 2000)
+      }
+    } catch {
+      // Sem permissão de área de transferência (ex.: http fora de localhost): mostra o link para copiar à mão.
+      toast(url, { duration: 8000 })
+    }
   }
 
   const handleDelete = async (id: string) => {
@@ -368,8 +389,24 @@ export default function FunnelsList({ funnels: initial, leadCounts, orgId, plan,
                     </div>
                   </div>
 
-                  <div className="mt-4 sm:mt-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hidden sm:flex items-center gap-2 pr-2">
-                    <span className="text-xs font-semibold text-linear-text-secondary bg-white/5 px-4 py-2 rounded-xl">Ver detalhes</span>
+                  <div className="mt-4 sm:mt-0 flex items-center gap-2 pr-2 pl-2 sm:pl-0">
+                    {/* Sempre visível (também no celular): copiar o link é a ação mais usada da lista */}
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); if (isPublished) handleCopyLink(funnel.slug, funnel.id) }}
+                      disabled={!isPublished}
+                      aria-label={isPublished ? `Copiar link público de ${funnel.name}` : 'Publique o funil para ter um link público'}
+                      title={isPublished ? `/preview/${funnel.slug}` : 'Publique o funil para ter um link público'}
+                      className="flex items-center gap-2 h-9 px-3.5 rounded-xl border border-linear-border bg-linear-surface text-xs font-semibold text-linear-text-secondary hover:text-linear-text-primary hover:border-linear-indigo/50 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-linear-text-secondary disabled:hover:border-linear-border"
+                    >
+                      {copiedId === funnel.id
+                        ? <><Check size={14} className="text-emerald-400" aria-hidden /> Copiado!</>
+                        : <><LinkIcon size={14} aria-hidden /> Copiar link</>}
+                    </button>
+                    <button type="button" onClick={e => { e.stopPropagation(); setActive(funnel) }}
+                      className="flex items-center h-9 px-3.5 rounded-xl bg-white/5 border border-transparent text-xs font-semibold text-linear-text-secondary hover:text-linear-text-primary hover:bg-white/10 cursor-pointer transition-colors">
+                      Ver detalhes
+                    </button>
                   </div>
                 </motion.li>
               )
@@ -521,7 +558,7 @@ export default function FunnelsList({ funnels: initial, leadCounts, orgId, plan,
                   }>
                     <AnimatedAIChat 
                       onSend={async (message) => {
-                        toast.loading('AI is processing your request...')
+                        toast.loading('Preparando seu funil...')
                         setTimeout(() => {
                           toast.dismiss()
                           setNewName(message.slice(0, 30))

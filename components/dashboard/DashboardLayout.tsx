@@ -108,8 +108,8 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
   if (isBuilder) {
     return (
       <div className="min-h-screen bg-linear-bg dashboard-theme selection:bg-linear-indigo/30 selection:text-linear-text-primary overflow-hidden">
+        {/* O builder tem o próprio assistente no dock; o botão global sobrepunha o painel lateral. */}
         {children}
-        <AIAssistantButton />
       </div>
     )
   }

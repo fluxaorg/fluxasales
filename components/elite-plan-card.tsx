@@ -34,7 +34,6 @@ export const ElitePlanCard = React.forwardRef<
     return (
       <motion.div
         ref={ref}
-        whileHover={{ scale: 1.02 }}
         transition={{ type: "spring", stiffness: 250, damping: 20 }}
         className={cn(
           "relative w-full max-w-sm overflow-hidden rounded-3xl hover:shadow-xl bg-black",
@@ -45,7 +44,6 @@ export const ElitePlanCard = React.forwardRef<
         {/* Top image with parallax */}
         <motion.div
           className="relative h-64 w-full overflow-hidden"
-          whileHover={{ scale: 1.1 }}
           transition={{ duration: 0.45 }}
         >
           <img

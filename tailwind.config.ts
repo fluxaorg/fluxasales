@@ -1,5 +1,9 @@
 import type { Config } from 'tailwindcss'
 
+// Cor via variável CSS que ainda aceita modificador de opacidade (ex.: bg-linear-indigo/30).
+// Com 'var(--x)' puro o Tailwind não gera as classes com "/NN" e elas eram ignoradas em silêncio.
+const v = (name: string) => `color-mix(in srgb, var(${name}) calc(<alpha-value> * 100%), transparent)`
+
 const config: Config = {
   darkMode: ['class', 'class'],
   content: [
@@ -30,20 +34,20 @@ const config: Config = {
         border: 'var(--border)',
         // All linear colors now use CSS variables → theme-aware
         linear: {
-          bg:                'var(--linear-bg)',
-          surface:           'var(--linear-surface)',
-          'surface-elevated':'var(--linear-surface-elevated)',
-          'surface-hover':   'var(--linear-surface-hover)',
-          indigo:            'var(--linear-indigo)',
-          violet:            'var(--linear-violet)',
-          'violet-hover':    'var(--linear-violet-hover)',
-          border:            'var(--linear-border)',
-          'border-strong':   'var(--linear-border-strong)',
+          bg:                v('--linear-bg'),
+          surface:           v('--linear-surface'),
+          'surface-elevated':v('--linear-surface-elevated'),
+          'surface-hover':   v('--linear-surface-hover'),
+          indigo:            v('--linear-indigo'),
+          violet:            v('--linear-violet'),
+          'violet-hover':    v('--linear-violet-hover'),
+          border:            v('--linear-border'),
+          'border-strong':   v('--linear-border-strong'),
           text: {
-            primary:   'var(--linear-text-primary)',
-            secondary: 'var(--linear-text-secondary)',
-            tertiary:  'var(--linear-text-tertiary)',
-            quaternary:'var(--linear-text-quaternary)',
+            primary:   v('--linear-text-primary'),
+            secondary: v('--linear-text-secondary'),
+            tertiary:  v('--linear-text-tertiary'),
+            quaternary:v('--linear-text-quaternary'),
           },
         },
         accent: '#0066CC',

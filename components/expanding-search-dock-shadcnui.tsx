@@ -79,7 +79,6 @@ export function ExpandingSearchDock({
                 onClick={handleCollapse}
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 className="mr-2 flex h-8 w-8 items-center justify-center rounded-full hover:bg-muted"
               >

@@ -1,16 +1,17 @@
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import FunnelRenderer from '@/components/builder/FunnelRenderer'
+import { FunnelPage, FunnelComponent } from '@/types'
 
 export default async function PreviewPage({ params }: { params: { slug: string } }) {
   const supabase = await createClient()
 
-  // Fetch funnel
+  // Pela RLS, visitantes só enxergam funis publicados; rascunhos só voltam para quem pode editá-los.
   const { data: funnel } = await supabase
     .from('fluxaleads_funnels')
     .select(`
       *,
-      fluxaleads_organizations(meta_pixel_id),
       fluxaleads_pages(
         *,
         fluxaleads_components(*)
@@ -19,24 +20,32 @@ export default async function PreviewPage({ params }: { params: { slug: string }
     .eq('slug', params.slug)
     .single()
 
-  if (!funnel || funnel.status !== 'published') {
-    return notFound()
-  }
+  if (!funnel) return notFound()
 
-  // Sort pages and components
-  const sortedPages = funnel.fluxaleads_pages?.sort((a: any, b: any) => a.page_order - b.page_order) || []
-  
-  sortedPages.forEach((page: any) => {
-    page.fluxaleads_components?.sort((a: any, b: any) => a.component_order - b.component_order)
-  })
+  const isDraft = funnel.status !== 'published'
+
+  // O Pixel é lido no servidor, com a service role: visitantes não têm (nem devem ter) acesso
+  // à tabela de organizações, que guarda o user_id do dono. Só o ID do pixel chega ao navegador.
+  const { data: org } = await createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+    .from('fluxaleads_organizations')
+    .select('meta_pixel_id')
+    .eq('id', funnel.org_id)
+    .single()
+
+  type PageRow = Omit<FunnelPage, 'components'> & { fluxaleads_components: FunnelComponent[] | null }
+  const pages: FunnelPage[] = ((funnel.fluxaleads_pages ?? []) as PageRow[])
+    .sort((a, b) => a.page_order - b.page_order)
+    .map(({ fluxaleads_components, ...page }) => ({
+      ...page,
+      components: (fluxaleads_components ?? []).sort((a, b) => a.component_order - b.component_order),
+    }))
 
   return (
-    <div className="min-h-screen">
-      {/* Meta Pixel tracking would go here */}
-      <FunnelRenderer 
-        funnel={funnel} 
-        pages={sortedPages} 
-      />
-    </div>
+    <FunnelRenderer
+      funnel={funnel}
+      pages={pages}
+      metaPixelId={org?.meta_pixel_id ?? null}
+      isDraft={isDraft}
+    />
   )
 }

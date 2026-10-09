@@ -2,17 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Bounce hover — desktop only */
+/* Hover sutil — desktop only.
+   Sem will-change e sem scale no hover: os dois faziam o navegador rasterizar o botão como
+   camada e esticá-la, deixando o texto borrado (efeito de "glow"). Deslocamento em px inteiro mantém o texto nítido. */
 @media (pointer: fine) {
   a, button, [role="button"] {
-    transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
-    will-change: transform;
+    transition: transform 0.18s ease;
   }
   a:hover, button:hover, [role="button"]:hover {
-    transform: translateY(-2px) scale(1.03);
+    transform: translateY(-1px);
   }
   a:active, button:active, [role="button"]:active {
-    transform: scale(0.96) translateY(0px);
+    transform: translateY(0);
     transition: transform 0.08s ease;
   }
 }
@@ -161,6 +162,18 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+    font-family: var(--font-dm-sans), sans-serif !important;
+  }
+
+  /* Funis usam a fonte escolhida no Design (via --funnel-font), não a fonte do sistema imposta acima. */
+  [data-funnel-font] {
+    font-family: var(--funnel-font), sans-serif !important;
+  }
+  [data-funnel-font] * {
+    font-family: inherit !important;
+  }
+  /* Etiquetas do editor dentro da pré-visualização continuam na fonte do sistema. */
+  [data-funnel-font] .font-sans {
     font-family: var(--font-dm-sans), sans-serif !important;
   }
 
