@@ -1,9 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import BuilderClient from '@/components/builder/BuilderClient'
+import { effectivePlan } from '@/lib/plans'
 
 export default async function BuilderPage({ params }: { params: { id: string } }) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
   const { data: funnel } = await supabase
     .from('fluxaleads_funnels')
@@ -32,7 +34,7 @@ export default async function BuilderPage({ params }: { params: { id: string } }
     <BuilderClient 
       funnel={funnel} 
       initialPages={sortedPages} 
-      plan={sub?.plan || 'TRIAL'}
+      plan={effectivePlan(sub?.plan, user)}
     />
   )
 }

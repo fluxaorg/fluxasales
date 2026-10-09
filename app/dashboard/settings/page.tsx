@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import SettingsClient from '@/components/dashboard/SettingsClient'
+import { isSuperAdmin } from '@/lib/plans'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -26,6 +27,7 @@ export default async function SettingsPage() {
       orgId={org.id}
       metaPixelId={org.meta_pixel_id || ''}
       webhooks={webhooks || []}
+      isSuperAdmin={isSuperAdmin(user)}
     />
   )
 }

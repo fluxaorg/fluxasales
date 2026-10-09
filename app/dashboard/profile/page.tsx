@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { effectivePlan, hasEliteFeatures } from '@/lib/plans'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
@@ -17,6 +18,7 @@ const PLAN_LIMITS: Record<string, { funnels: number; leads: number; label: strin
   BASIC: { funnels: 2,  leads: 2000,  label: 'Basic',  icon: <Zap size={14} /> },
   PRO:   { funnels: 5,  leads: 8000,  label: 'Pro',    icon: <BarChart2 size={14} /> },
   ELITE: { funnels: 12, leads: 30000, label: 'Elite',  icon: <Crown size={14} /> },
+  UNLIMITED: { funnels: Infinity, leads: Infinity, label: 'Ilimitado', icon: <Crown size={14} /> },
 }
 
 export default function ProfilePage() {
@@ -49,7 +51,7 @@ export default function ProfilePage() {
       if (org) {
         setOrgId(org.id)
         const { data: sub } = await supabase.from('fluxaleads_subscriptions').select('plan').eq('org_id', org.id).single()
-        if (sub) setPlan(sub.plan)
+        setPlan(effectivePlan(sub?.plan, user))
         const { count: fc } = await supabase.from('fluxaleads_funnels').select('*', { count: 'exact', head: true }).eq('org_id', org.id)
         setFunnelCount(fc ?? 0)
         const { count: lc } = await supabase.from('fluxaleads_leads').select('*', { count: 'exact', head: true }).eq('org_id', org.id)
@@ -270,7 +272,7 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {plan !== 'ELITE' && (
+        {!hasEliteFeatures(plan) && (
           <a href="/checkout/elite"
             className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl bg-linear-indigo/10 border border-linear-indigo/30 text-linear-indigo font-semibold text-sm hover:bg-linear-indigo/20 transition-all"
           >

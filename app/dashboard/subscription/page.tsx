@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { effectivePlan, hasEliteFeatures, PLAN_LABEL, PlanId } from '@/lib/plans'
 import { createClient } from '@/lib/supabase/client'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CreditCard, Check, ArrowRight, X, Crown, Zap, Shield, BarChart2, QrCode } from 'lucide-react'
@@ -45,12 +46,12 @@ export default function SubscriptionPage() {
       const { data: org } = await supabase.from('fluxaleads_organizations').select('id').eq('user_id', user.id).single()
       if (!org) return
       const { data: sub } = await supabase.from('fluxaleads_subscriptions').select('plan').eq('org_id', org.id).single()
-      if (sub) setPlan(sub.plan)
+      setPlan(effectivePlan(sub?.plan, user))
     }
     load()
   }, [])
 
-  const currentPlan = PLANS.find(p => p.slug === plan.toLowerCase()) ?? { name: plan, price: 0, features: [], slug: plan.toLowerCase() }
+  const currentPlan = PLANS.find(p => p.slug === plan.toLowerCase()) ?? { name: PLAN_LABEL[plan as PlanId] ?? plan, price: 0, features: plan === 'UNLIMITED' ? ['Funis ilimitados', 'Todos os recursos do Elite', 'Acesso de administrador'] : [], slug: plan.toLowerCase() }
   const isTrial = plan === 'TRIAL'
   const nextBilling = new Date(); nextBilling.setDate(nextBilling.getDate() + 7)
 
@@ -116,7 +117,7 @@ export default function SubscriptionPage() {
                   <Crown size={17} /> Assinar plano
                 </button>
               )}
-              {plan !== 'ELITE' && (
+              {!hasEliteFeatures(plan) && (
                 <button onClick={() => setShowUpgrade(true)}
                   className="flex items-center gap-2 text-linear-indigo text-sm font-medium hover:underline"
                 >
@@ -156,7 +157,7 @@ export default function SubscriptionPage() {
         )}
 
         {/* Outros planos disponíveis */}
-        {plan !== 'ELITE' && (
+        {!hasEliteFeatures(plan) && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
             className="rounded-[28px] border border-linear-border bg-linear-surface/40 backdrop-blur-xl p-8"
           >

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 import crypto from 'crypto'
 
@@ -13,10 +13,18 @@ const schema = z.object({
   source: z.string().max(200).optional()
 })
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+// Criado sob demanda (não no carregamento do módulo): o build da Vercel carrega esta rota
+// e quebrava com "supabaseUrl is required" quando as variáveis não estavam disponíveis.
+let adminClient: SupabaseClient | null = null
+function getAdmin() {
+  if (!adminClient) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !key) throw new Error('Configure NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY.')
+    adminClient = createClient(url, key)
+  }
+  return adminClient
+}
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || req.headers.get('x-real-ip') || 'anonymous'
@@ -39,7 +47,7 @@ export async function POST(req: NextRequest) {
     const validatedData = schema.parse(body)
 
     // Verify funnel exists and is published
-    const { data: funnel, error: funnelError } = await supabaseAdmin
+    const { data: funnel, error: funnelError } = await getAdmin()
       .from('fluxaleads_funnels')
       .select('id, org_id, status, name')
       .eq('id', validatedData.funnel_id)
@@ -62,7 +70,7 @@ export async function POST(req: NextRequest) {
     const phone = pick('phone')
 
     // Insert lead
-    const { data: lead, error: leadError } = await supabaseAdmin
+    const { data: lead, error: leadError } = await getAdmin()
       .from('fluxaleads_leads')
       .insert({
         funnel_id: validatedData.funnel_id,
@@ -93,7 +101,7 @@ export async function POST(req: NextRequest) {
 }
 
 async function triggerWebhooks(orgId: string, lead: Record<string, unknown>) {
-  const { data: webhooks } = await supabaseAdmin
+  const { data: webhooks } = await getAdmin()
     .from('fluxaleads_webhooks')
     .select('url, secret')
     .eq('org_id', orgId)

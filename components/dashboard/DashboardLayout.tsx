@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { effectivePlan } from '@/lib/plans'
 import { motion } from 'framer-motion'
 import { ThemeProvider, useTheme } from '@/lib/theme'
 import { usePathname } from 'next/navigation'
@@ -99,7 +100,7 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
         const { data: org } = await supabase.from('fluxaleads_organizations').select('id').eq('user_id', data.user?.id).single()
         if (org) {
           const { data: sub } = await supabase.from('fluxaleads_subscriptions').select('plan').eq('org_id', org.id).single()
-          if (sub) setPlan(sub.plan)
+          setPlan(effectivePlan(sub?.plan, data.user))
         }
       }
     })

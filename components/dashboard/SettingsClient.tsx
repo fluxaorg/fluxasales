@@ -17,15 +17,19 @@ import {
   AlertTriangle
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import UsersAdmin from './UsersAdmin'
 
 interface SettingsClientProps {
   orgId: string
   metaPixelId: string
   webhooks: Webhook[]
+  /** Super admin vê a aba Usuários. */
+  isSuperAdmin?: boolean
 }
 
-export default function SettingsClient({ orgId, metaPixelId: initialPixelId, webhooks: initialWebhooks }: SettingsClientProps) {
+export default function SettingsClient({ orgId, metaPixelId: initialPixelId, webhooks: initialWebhooks, isSuperAdmin = false }: SettingsClientProps) {
   const supabase = createClient()
+  const [tab, setTab] = useState<'integrations' | 'users'>('integrations')
 
   // Pixel
   const [pixelId, setPixelId] = useState(initialPixelId)
@@ -148,6 +152,20 @@ export default function SettingsClient({ orgId, metaPixelId: initialPixelId, web
           Gerencie seu rastreamento, webhooks e chaves de API.
         </p>
       </div>
+
+      {isSuperAdmin && (
+        <div role="tablist" aria-label="Seções das configurações" className="flex gap-1 border-b border-linear-border -mt-4">
+          {([['integrations', 'Rastreamento & Webhooks'], ['users', 'Usuários']] as const).map(([id, label]) => (
+            <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
+              className={`relative h-11 px-4 text-sm font-medium cursor-pointer transition-colors ${tab === id ? 'text-linear-text-primary' : 'text-linear-text-tertiary hover:text-linear-text-secondary'}`}>
+              {label}
+              {tab === id && <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-linear-indigo" />}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {tab === 'users' ? <UsersAdmin /> : (<>
 
       {/* Secret reveal (one-time) */}
       <AnimatePresence>
@@ -393,6 +411,7 @@ export default function SettingsClient({ orgId, metaPixelId: initialPixelId, web
           </>
         )}
       </AnimatePresence>
+      </>)}
     </div>
   )
 }

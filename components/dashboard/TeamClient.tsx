@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { hasEliteFeatures } from '@/lib/plans'
 import { createClient } from '@/lib/supabase/client'
 import { 
   Users,
@@ -34,8 +35,8 @@ export default function TeamClient({ initialMembers, orgId, plan }: TeamClientPr
   const [isAdding, setIsAdding] = useState(false)
   const supabase = createClient()
 
-  const isElite = plan === 'ELITE'
-  const memberLimit = 2 // Elite allows 2 extra members
+  const isElite = hasEliteFeatures(plan)
+  const memberLimit = plan === 'UNLIMITED' ? Infinity : 2 // Elite permite 2 membros extras; ilimitado não tem teto
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault()

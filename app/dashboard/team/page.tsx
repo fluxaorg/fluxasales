@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { effectivePlan } from '@/lib/plans'
 import TeamClient from '@/components/dashboard/TeamClient'
 import { redirect } from 'next/navigation'
 
@@ -37,7 +38,7 @@ export default async function TeamPage() {
     <TeamClient 
       initialMembers={members || []} 
       orgId={org.id} 
-      plan={sub?.plan || 'TRIAL'} 
+      plan={effectivePlan(sub?.plan, user)} 
     />
   )
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { effectivePlan, PLAN_LABEL, PlanId } from '@/lib/plans'
 import { createClient } from '@/lib/supabase/client'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
@@ -32,7 +33,7 @@ export default function DashboardHome() {
         supabase.from('fluxaleads_funnels').select('*', { count: 'exact' }).eq('org_id', org.id).order('created_at', { ascending: false }).limit(4),
         supabase.from('fluxaleads_leads').select('*', { count: 'exact', head: true }).eq('org_id', org.id),
       ])
-      if (subRes.data) setPlan(subRes.data.plan)
+      setPlan(effectivePlan(subRes.data?.plan, user))
       setFunnelCount(funnelRes.count ?? 0)
       setRecentFunnels(funnelRes.data ?? [])
       setLeadCount(leadRes.count ?? 0)
@@ -50,7 +51,7 @@ export default function DashboardHome() {
     { href: '/dashboard/leads',        icon: Users,     label: 'Leads',          value: `${leadCount} capturados` },
     { href: '/dashboard/analytics',    icon: BarChart2, label: 'Análises',       value: 'Ver métricas' },
     { href: '/dashboard/integrations', icon: Plug2,     label: 'Integrações',    value: 'Webhooks & pixels' },
-    { href: '/dashboard/subscription', icon: CreditCard,label: 'Assinatura',     value: `Plano ${plan}` },
+    { href: '/dashboard/subscription', icon: CreditCard,label: 'Assinatura',     value: `Plano ${PLAN_LABEL[plan as PlanId] ?? plan}` },
   ]
 
   return (
@@ -65,7 +66,7 @@ export default function DashboardHome() {
           <div>
             <h1 className="text-4xl font-bold text-linear-text-primary tracking-tight capitalize leading-none">{name}</h1>
             <p className="text-linear-text-quaternary text-sm mt-1.5">
-              Plano <span className="text-linear-text-secondary font-medium">{plan}</span>
+              Plano <span className="text-linear-text-secondary font-medium">{PLAN_LABEL[plan as PlanId] ?? plan}</span>
               <span className="mx-2 opacity-30">·</span>
               <span>{funnelCount} funil{funnelCount !== 1 ? 's' : ''}</span>
               <span className="mx-2 opacity-30">·</span>

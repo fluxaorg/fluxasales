@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import FunnelsList from '@/components/dashboard/FunnelsList'
-
-const PLAN_LIMITS: Record<string, number> = { TRIAL: 1, BASIC: 2, PRO: 5, ELITE: 10 }
+import { effectivePlan } from '@/lib/plans'
 
 export default async function FunnelsPage() {
   const supabase = await createClient()
@@ -22,8 +21,7 @@ export default async function FunnelsPage() {
     .eq('org_id', org.id)
     .single()
 
-  const plan = sub?.plan ?? 'TRIAL'
-  const limit = PLAN_LIMITS[plan] ?? 1
+  const plan = effectivePlan(sub?.plan, user)
 
   const { data: collabFunnels } = await supabase
     .from('fluxaleads_funnel_collaborators')
@@ -54,7 +52,6 @@ export default async function FunnelsPage() {
       leadCounts={leadCounts}
       orgId={org.id}
       plan={plan}
-      limit={limit}
     />
   )
 }

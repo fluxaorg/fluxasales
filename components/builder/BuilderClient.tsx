@@ -15,6 +15,7 @@ import { FloatingDock } from '@/components/ui/floating-dock'
 import { motion, AnimatePresence } from 'framer-motion'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { resolveTheme, googleFontUrl, alpha } from '@/lib/funnel-theme'
+import { hasEliteFeatures } from '@/lib/plans'
 const AnimatedAIChat = lazy(() => import('@/components/ui/animated-ai-chat'))
 
 interface BuilderClientProps {
@@ -74,7 +75,7 @@ export default function BuilderClient({ funnel: initialFunnel, initialPages, pla
   const [busy, setBusy]                   = useState(false)
 
   const theme = resolveTheme(funnel.theme)
-  const isElite = plan === 'ELITE'
+  const isElite = hasEliteFeatures(plan)
 
   // ── Salvamento: um temporizador por item, para que editar A e depois B não descarte o save de A ──
   const timers = useRef(new Map<string, { timer: NodeJS.Timeout; fn: () => Promise<void> }>())

@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 import { Funnel, FunnelStatus } from '@/types'
 import { slugify, DEFAULT_THEME } from '@/lib/funnel-theme'
+import { funnelLimit, hasEliteFeatures, PLAN_LABEL, PlanId } from '@/lib/plans'
 import { 
   Plus, 
   Settings2, 
@@ -50,7 +51,8 @@ interface FunnelsListProps {
   leadCounts: Record<string, number>
   orgId: string
   plan: string
-  limit: number
+  /** @deprecated o limite é calculado a partir do plano */
+  limit?: number
 }
 
 function timeAgo(dateStr: string) {
@@ -63,7 +65,10 @@ function timeAgo(dateStr: string) {
   return 'now'
 }
 
-export default function FunnelsList({ funnels: initial, leadCounts, orgId, plan, limit }: FunnelsListProps) {
+export default function FunnelsList({ funnels: initial, leadCounts, orgId, plan }: FunnelsListProps) {
+  // Calculado aqui (e não recebido do servidor) porque o plano ilimitado usa Infinity.
+  const limit = funnelLimit(plan)
+  const planLabel = PLAN_LABEL[plan as PlanId] ?? plan
   const router = useRouter()
   const supabase = createClient()
 
@@ -144,7 +149,7 @@ export default function FunnelsList({ funnels: initial, leadCounts, orgId, plan,
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     if (funnels.length >= limit) {
-      toast.error(`Limite do plano atingido. Seu plano ${plan} permite ${limit} funil(s).`)
+      toast.error(`Limite do plano atingido. Seu plano ${planLabel} permite ${limit} funil(s).`)
       return
     }
     if (!newName.trim()) return
@@ -223,7 +228,7 @@ export default function FunnelsList({ funnels: initial, leadCounts, orgId, plan,
 
   const handleShare = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (plan !== 'ELITE') {
+    if (!hasEliteFeatures(plan)) {
       toast.error('Apenas o plano ELITE permite colaboração em tempo real.')
       return
     }
@@ -255,7 +260,7 @@ export default function FunnelsList({ funnels: initial, leadCounts, orgId, plan,
           </div>
           <h1 className="text-4xl font-semibold tracking-tight text-linear-text-primary">Seus Funis</h1>
           <p className="text-linear-text-tertiary mt-2 text-sm">
-            {funnels.length} de {limit} funis criados no plano <span className="text-linear-indigo font-bold">{plan}</span>.
+            {Number.isFinite(limit) ? <>{funnels.length} de {limit} funis criados</> : <>{funnels.length} funis criados</>} no plano <span className="text-linear-indigo font-bold">{planLabel}</span>.
           </p>
         </div>
         <button

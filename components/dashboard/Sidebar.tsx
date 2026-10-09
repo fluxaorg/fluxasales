@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { hasEliteFeatures } from '@/lib/plans'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import {
@@ -27,7 +28,7 @@ export default function Sidebar({ userEmail, userName, plan }: SidebarProps) {
   const avatar = getAvatar(userEmail)
   const displayName = userName || userEmail?.split('@')[0] || 'Usuário'
 
-  const isElite = plan === 'ELITE'
+  const isElite = hasEliteFeatures(plan)
   const eliteNavItems = isElite
     ? [...navItems.slice(0, 2), { href: '/dashboard/team', label: 'Equipe', icon: Users }, ...navItems.slice(2)]
     : navItems
